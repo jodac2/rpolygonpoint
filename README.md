@@ -13,7 +13,7 @@ El core de la librería ***RPolygonPoint*** consiste en *determinar si un punto 
 
 La librería tiene tres métodos principales
 
-1. `get_inside_polygon`: Dado un conjunto de puntos y uno de polígonos, determina cuales de los polígonos son contenederes de los puntos.
+1. `get_container_polygon`: Dado un conjunto de puntos y uno de polígonos, determina cuales de los polígonos son contenederes de los puntos.
 
 2. `get_random_polygon_point`: Dato un polígono y un tamaño de muestra, el método genera un conjunto de puntos aleatorios que pertenecen al polígono.
 
