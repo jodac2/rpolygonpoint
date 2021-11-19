@@ -1,6 +1,17 @@
 # rpolygonpoint
-Simulación de puntos aleatorios dentro de un poligono
 
-https://github.com/JODAC2/rpolygonpoint.git
+# Title 1
+## Title 2
 
-*** Simulación de Puntos dentro de un Poligono ***
+[link to repo](https://github.com/JODAC2/rpolygonpoint.git)
+
+***Simulación de Puntos dentro de un Poligono***
+
+```
+library(scaffold)
+scaffold.run()
+```
+
+$$
+\int_0^x\frac{1}{2}
+$$
