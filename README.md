@@ -12,6 +12,4 @@ library(scaffold)
 scaffold.run()
 ```
 
-$$
-\int_0^x\frac{1}{2}
-$$
+$$\int_0^x\frac{1}{2}$$
