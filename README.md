@@ -43,6 +43,9 @@ Dada una resolución, que puede ser diferente para cada polígono, se genera una
 
 Los Pasos 1 y 2 pueden verse como una especie de pre-proceso si los polígonos no se modifican con el tiempo. El paso final es determinar dentro de cual mosaico de la malla del rectángulo delimitador se encuentra el punto, si es que lo está. Si el punto se encuentra en un mosaico del tipo ***outside*** o ***inside***, entonces automáticamente se puede determinar si el punto está dentro o fuera del polígono. Si el mosaico es de tipo ***undecided***, entonces se debe emplear el método del rayo para decidir.
 
+<p align="center">
+  <img src="mx_mesh.png?raw=true" alt="Mesh to México Polygon." title="Mesh to México Polygon." width="350">
+</p>
 
 ## Algoritmo: Random Point
 ---
@@ -76,9 +79,6 @@ Sea _m_ el número de componentes tipo inside y undecided; *[x0_i,x1_i]* y *[y0_
 ---
 
 Algo interesente que se puede hacer para mejorar aún más el método que se plantea sería establecer un método para seleccionar la resolución de la malla de manera que se redusca el número de mosaicos tipo ***outside*** sin que se vea afeacto el tiempo de ejecución por el número de mosaicos del rectángulo delimitador. El funcionamiento del algoritmo se puede resumir en los siguientes pasos.
-
-![Mesh to México polygon](mx_mesh.png?raw=true "Mesh to México Polygon")
-
 
 ## Licencia
 ---
