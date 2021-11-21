@@ -43,16 +43,25 @@ Dada una resolución, que puede ser diferente para cada polígono, se genera una
 
 Los Pasos 1 y 2 pueden verse como una especie de pre-proceso si los polígonos no se modifican con el tiempo. El paso final es determinar dentro de cual mosaico de la malla del rectángulo delimitador se encuentra el punto, si es que lo está. Si el punto se encuentra en un mosaico del tipo ***outside*** o ***inside***, entonces automáticamente se puede determinar si el punto está dentro o fuera del polígono. Si el mosaico es de tipo ***undecided***, entonces se debe emplear el método del rayo para decidir.
 
+
 ## Algoritmo: Random Point
 ---
 
 El algoritmo de simulación de puntos de un poligono tiene la idea básica de un método de [muestro Gibbs](https://en.wikipedia.org/wiki/Gibbs_sampling). Es decir, en lugar de simular de la distribución multivariada completa a la vez, el muestreo Gibbs realiza simulaciones parciales a partir de las ditribuciones condicionales.
 
+
+### Paso 1: Distribución propuesta conjunta
+
+El primer paso del algoritmo consistes en establecer una distribución propuesta conjunta que permita simular del poligono (la cual por supuesto debe contener al dominio del polígono). La propuesta más evidente (pero ineficiente) consiste en simular de manera uniforme sobre el rectangulo delimitar del polígono y utilizar el método del rayo para validar si el punto esta dentro o fuera del polígono. 
+
+Para conseguir una distribución propuesta conjunta con una tasa de aceptación mejor, se utiliza lo desarrollado en el algoritmo ***Container Polygon***. Más especificamente, se construye una malla sobre el rectangulo delimitador y posteriormente se realiza una clasificación de los componentes de la malla en tipo outside, inside y undecided. Esto permite utilizar únicamente los componentes inside y undecided para establacer la distribución propuesta conjunta.
+
+El resultado de este paso es una indexación de los componetes inside y undecided de los componentes de la malla del rectangulo delimitador del polígono.
+
 ## Por hacer
 ---
 
-Algo interesente que se puede hacer para mejorar aún más el método que se plantea sería establecer un método para seleccionar la resolución de la malla de manera que se redusca el número de mosaicos tipo ***outside*** sin que se vea afeacto el tiempo de ejecución por el número de mosaicos del rectángulo delimitador.
-
+Algo interesente que se puede hacer para mejorar aún más el método que se plantea sería establecer un método para seleccionar la resolución de la malla de manera que se redusca el número de mosaicos tipo ***outside*** sin que se vea afeacto el tiempo de ejecución por el número de mosaicos del rectángulo delimitador. El funcionamiento del algoritmo se puede resumir en los siguientes pasos.
 
 
 ## Licencia
