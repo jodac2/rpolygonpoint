@@ -77,6 +77,8 @@ Sea _m_ el número de componentes tipo inside y undecided; *[x0_i,x1_i]* y *[y0_
 
 Algo interesente que se puede hacer para mejorar aún más el método que se plantea sería establecer un método para seleccionar la resolución de la malla de manera que se redusca el número de mosaicos tipo ***outside*** sin que se vea afeacto el tiempo de ejecución por el número de mosaicos del rectángulo delimitador. El funcionamiento del algoritmo se puede resumir en los siguientes pasos.
 
+![Mesh to México polygon](mx_mesh.png?raw=true "Mesh to México Polygon")
+
 
 ## Licencia
 ---
