@@ -1,6 +1,6 @@
 # RPolygonPoint
 
-[RPolygonPoint](https://github.com/jodac2/rpolygonpoint.git) es una pequeña librería no oficial de python y spark que permite generar puntos aleatorios de un poligono a gran escala y de manera eficiente. Además, permite realizar la construcción de poligonos aleatorios.
+[RPolygonPoint](https://github.com/jodac2/rpolygonpoint.git) es una pequeña librería no oficial de python y spark que permite generar puntos aleatorios de un poligono a gran escala y de manera eficiente. Además, permite realizar la construcción de poligonos aleatorios. Gran parte de la eficiencia del algoritmo radica en que a exception de algunas sentencias de control, la libería utiliza únicamente funciones nativas de spark.
 
 ## Origen
 ---
@@ -19,7 +19,7 @@ La librería tiene tres métodos principales
 
 3. `get_random_polygon`: Dato un número de lados y algunos parámetros de configuración (dependiendo del tipo de simulación) genera un conjuto de polígonos aleatorios.
 
-## Algoritmo
+## Algoritmo: Container Polygon
 ---
 
  La ide básica del algoritmo es utilizar el [método del rayo](https://en.wikipedia.org/wiki/Point_in_polygon) para determinar si un punto pertenece o no a un polígono dado. Sin embargo, si el número de polígonos o puntos es relativamente alto el problema se vuelve costoso en tiempo de ejecución, ya que se debe hacer el producto cartesiano entre el junto de puntos y polígonos; y posteriormente aplicar el método del rayo sobre cada una de las posibles combinaciones. Con esto es evidente que se deben utilizar métodos menos costosos que permitan reducir el tiempo de ejecución, la solución que se plantea consiste en los siguientes pasos.
