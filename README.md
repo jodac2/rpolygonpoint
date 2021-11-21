@@ -47,16 +47,27 @@ Los Pasos 1 y 2 pueden verse como una especie de pre-proceso si los polígonos n
 ## Algoritmo: Random Point
 ---
 
-El algoritmo de simulación de puntos de un poligono tiene la idea básica de un método de [muestro Gibbs](https://en.wikipedia.org/wiki/Gibbs_sampling). Es decir, en lugar de simular de la distribución multivariada completa a la vez, el muestreo Gibbs realiza simulaciones parciales a partir de las ditribuciones condicionales.
+El algoritmo de simulación de puntos de un poligono tiene la idea básica de un método de [muestro Gibbs](https://en.wikipedia.org/wiki/Gibbs_sampling). Es decir, en lugar de simular de la distribución multivariada completa a la vez, el muestreo Gibbs realiza simulaciones parciales a partir de las ditribuciones condicionales. El algoritmo propuesto puede resumirse en los siguientes pasos.
 
 
 ### Paso 1: Distribución propuesta conjunta
 
-El primer paso del algoritmo consistes en establecer una distribución propuesta conjunta que permita simular del poligono (la cual por supuesto debe contener al dominio del polígono). La propuesta más evidente (pero ineficiente) consiste en simular de manera uniforme sobre el rectangulo delimitar del polígono y utilizar el método del rayo para validar si el punto esta dentro o fuera del polígono. 
+El primer paso del algoritmo consiste en establecer una distribución propuesta conjunta que permita simular del poligono (la cual por supuesto debe contener al dominio del polígono). La propuesta más evidente (pero ineficiente) consiste en simular de manera uniforme sobre el rectangulo delimitador del polígono y utilizar el método del rayo para validar si el punto esta dentro o fuera del polígono. 
 
-Para conseguir una distribución propuesta conjunta con una tasa de aceptación mejor, se utiliza lo desarrollado en el algoritmo ***Container Polygon***. Más especificamente, se construye una malla sobre el rectangulo delimitador y posteriormente se realiza una clasificación de los componentes de la malla en tipo outside, inside y undecided. Esto permite utilizar únicamente los componentes inside y undecided para establacer la distribución propuesta conjunta.
+Para conseguir una distribución propuesta conjunta con una tasa de aceptación meyor, se utiliza lo desarrollado en el algoritmo *Container Polygon*. Más especificamente, se construye una malla sobre el rectangulo delimitador y posteriormente se realiza una clasificación de los componentes de la malla en tipo outside, inside y undecided. Esto permite utilizar únicamente los componentes de tipo inside y undecided para establacer la distribución propuesta conjunta.
 
-El resultado de este paso es una indexación de los componetes inside y undecided de los componentes de la malla del rectangulo delimitador del polígono.
+El resultado de este paso es una indexación de los componetes tipo inside y undecided de la malla del rectangulo delimitador del polígono.
+
+
+### Paso 2: Simulación de puntos propuesta
+
+Sea _m_ el número de componentes tipo inside y undecided; *[x0_i,x1_i]* y *[y0_i, y1_i]* lo límites inferior y superior en el eje _x_, _y_ del i-ésimo componetes de tipo undecided. El algoritmo para generar un punto propuesta consiste en los siguientes pasos:
+
+1. Se elige un componentes de manera aleatoria. Es decir, se generar un enetero aleatorio en [1, m].
+2. Si el componentes seleccionado es de tipo inside, entonces el punto propuesto es selecionado como un punto del polígono con probabilidad 1. De otro modo, se debe utilizas el método *Container Inside* para decidir si el punto esta fuera o dentro del polígono y esto ocurre con probabilidad *1 - p_i* y *p_i*, respectivamente.
+
+***Nota***: Debido a que la ejecución de este algoritmo ocurre en distribuido, es recomentable tener una buena aproximación de las tasas de aceptación *p_i* de los componentes de tipo undecided para tener un estimado de la cantidad de puntos propuesta que deben generarse para conseguir al menos el tamaño de muestra deseado. El método propuesto hasta ahora para aproximar estas probabilidad es utilizar una especie de periodo burn-in. Es decir, generar un número *n0_i* (pequeño) de puntos propuesta sobre cada componente de tipo undecided y obtener la proporción de los que estan dentro del polígono.
+
 
 ## Por hacer
 ---
