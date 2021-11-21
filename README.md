@@ -64,7 +64,9 @@ El resultado de este paso es una indexación de los componetes tipo inside y und
 Sea _m_ el número de componentes tipo inside y undecided; *[x0_i,x1_i]* y *[y0_i, y1_i]* lo límites inferior y superior en el eje _x_, _y_ del i-ésimo componetes de tipo undecided. El algoritmo para generar un punto propuesta consiste en los siguientes pasos:
 
 1. Se elige un componentes de manera aleatoria. Es decir, se generar un enetero aleatorio en [1, m].
+
 2. Si el componentes seleccionado es de tipo inside, entonces el punto propuesto es selecionado como un punto del polígono con probabilidad 1. 
+
 3. Si el compoente seleccionado es de tipo undecide, se genera un punto de manera uniforme en el componente; es decir, en *[x0_i,x1_i]* y *[y0_i, y1_i]*. Después, se debe utilizar el método *Container Inside* para decidir si el punto esta fuera o dentro del polígono y esto ocurre con probabilidad *1 - p_i* y *p_i*, respectivamente.
 
 ***Nota***: Debido a que la ejecución de este algoritmo ocurre en distribuido, es recomentable tener una buena aproximación de las tasas de aceptación *p_i* de los componentes de tipo undecided para tener un estimado de la cantidad de puntos propuesta que deben generarse para conseguir al menos el tamaño de muestra deseado. El método propuesto hasta ahora para aproximar estas probabilidad es utilizar una especie de periodo burn-in. Es decir, generar un número *n0_i* (pequeño) de puntos propuesta sobre cada componente de tipo undecided y obtener la proporción de los que estan dentro del polígono.
