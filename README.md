@@ -1,6 +1,6 @@
 # RPolygonPoint
 
-[RPolygonPoint](https://github.com/jodac2/rpolygonpoint.git) es una pequeña librería no oficial de python y spark que permite generar puntos aleatorios de un poligono a gran escala y de manera eficiente. Además, permite realizar la construcción de poligonos aleatorios. Gran parte de la eficiencia del algoritmo radica en que a exception de algunas sentencias de control, la libería utiliza únicamente funciones nativas de spark.
+[RPolygonPoint](https://github.com/jodac2/rpolygonpoint.git) es una pequeña librería no oficial de python y spark que permite generar puntos aleatorios de un poligono a gran escala y de manera eficiente. Además, permite realizar la construcción de poligonos aleatorios. Parte de la eficiencia de los algoritmos radica en que a excepción de algunas sentencias de control, la libería utiliza únicamente funciones nativas de spark.
 
 ## Origen
 ---
@@ -15,9 +15,9 @@ La librería tiene tres métodos principales
 
 1. `get_container_polygon`: Dado un conjunto de puntos y uno de polígonos, determina cuales de los polígonos son contenederes de los puntos.
 
-2. `get_random_polygon_point`: Dato un polígono y un tamaño de muestra, el método genera un conjunto de puntos aleatorios que pertenecen al polígono.
+2. `get_random_polygon_point`: Dado un polígono y un tamaño de muestra, el método genera un conjunto de puntos aleatorios que pertenecen al polígono.
 
-3. `get_random_polygon`: Dato un número de lados y algunos parámetros de configuración (dependiendo del tipo de simulación) genera un conjuto de polígonos aleatorios.
+3. `get_random_polygon`: Dado un número de lados y algunos parámetros de configuración (dependiendo del tipo de simulación) genera un conjuto de polígonos aleatorios.
 
 ## Algoritmo: Container Polygon
 ---
@@ -42,6 +42,11 @@ Dada una resolución, que puede ser diferente para cada polígono, se genera una
 ### Paso 3: Mosaico
 
 Los Pasos 1 y 2 pueden verse como una especie de pre-proceso si los polígonos no se modifican con el tiempo. El paso final es determinar dentro de cual mosaico de la malla del rectángulo delimitador se encuentra el punto, si es que lo está. Si el punto se encuentra en un mosaico del tipo ***outside*** o ***inside***, entonces automáticamente se puede determinar si el punto está dentro o fuera del polígono. Si el mosaico es de tipo ***undecided***, entonces se debe emplear el método del rayo para decidir.
+
+## Algoritmo: Random Point
+---
+
+El algoritmo de simulación de puntos de un poligono tiene la idea básica de un método de [muestro Gibbs](https://en.wikipedia.org/wiki/Gibbs_sampling). Es decir, en lugar de simular de la distribución multivariada completa a la vez, el muestreo Gibbs realiza simulaciones parciales a partir de las ditribuciones condicionales.
 
 ## Por hacer
 ---
