@@ -1,6 +1,13 @@
-from pyspark import StorageLevel, DataFrame
+import findspark
+findspark.init()
+
+from pyspark import StorageLevel
+from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql.functions import expr
-from rpolygonpoint.utils import logging
+from rpolygonpoint.utils.utils import logging
+
+
+spark = SparkSession.builder.getOrCreate()
 
 
 def Expr(*expr_list) -> list:
