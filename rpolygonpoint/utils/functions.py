@@ -1,10 +1,7 @@
-from pyspark import StorageLevel, DataFrame
+from pyspark.sql import DataFrame
 from pyspark.sql.functions import expr
 from rpolygonpoint.utils.utils import to_list
-from rpolygonpoint.utils.spark import write_persist, Expr, unpersist
-
-
-__storage_level__ = StorageLevel.MEMORY_AND_DISK
+from rpolygonpoint.utils.spark import write_persist, Expr, unpersist, _storage_level_
 
 
 def get_polygon_point_sample(df_polygon, polygon_id="polygon_id", path=None, 
@@ -57,14 +54,14 @@ def get_polygon_point_sample(df_polygon, polygon_id="polygon_id", path=None,
     df_point_sample = write_persist(
         df=df_point_sample, 
         path=path, 
-        storage_level=__storage_level__,
+        storage_level=_storage_level_,
         alias="PolygonPointSample"
     )
     
     return df_point_sample
 
 
-def get_delimiter_rectangle(df_polygon, polygon_id="polygon_id", coords=["coord_x", "coord_y"], path=None) -> DataFrame:
+def get_delimiter_rectangle(df_polygon, polygon_id="polygon_id", coords=["coord_x", "coord_y"], path=None, partition=1) -> DataFrame:
     """
     Polygon delimiter rectangle
     ------
@@ -104,15 +101,16 @@ def get_delimiter_rectangle(df_polygon, polygon_id="polygon_id", coords=["coord_
     df_delimiter_rectangle = write_persist(
         df=df_delimiter_rectangle, 
         path=path, 
-        storage_level=__storage_level__,
-        alias="PolygonDelimietRectangle"
+        storage_level=_storage_level_,
+        alias="PolygonDelimietRectangle",
+        partition=partition
     )
     
     return df_delimiter_rectangle
 
 
 def get_polygon_side(df_polygon, polygon_id="polygon_id", coords=["coord_x", "coord_y"], 
-                     point_seq="point_seq", path=None, order=False) -> DataFrame:
+                     point_seq="point_seq", path=None, order=False, partition=None) -> DataFrame:
     """
     Get polygon sides points
     ------
@@ -160,8 +158,7 @@ def get_polygon_side(df_polygon, polygon_id="polygon_id", coords=["coord_x", "co
         
     df_polygon2 = write_persist(
         df=df_polygon0.union(df_polygon), 
-        path=path, 
-        storage_level=__storage_level__,
+        storage_level=_storage_level_,
         alias="EndPolygonPoint"
     )
     
@@ -180,8 +177,9 @@ def get_polygon_side(df_polygon, polygon_id="polygon_id", coords=["coord_x", "co
     df_polygon_sides = write_persist(
         df=df_polygon_sides, 
         path=path, 
-        storage_level=StorageLevel.DISK_ONLY,
-        alias="PolygonSidesPoint"
+        storage_level=_storage_level_,
+        alias="PolygonSidesPoint",
+        partition=partition
     )
     
     unpersist(df_polygon2, "EndPolygonPoint")
@@ -189,8 +187,250 @@ def get_polygon_side(df_polygon, polygon_id="polygon_id", coords=["coord_x", "co
     return df_polygon_sides
 
 
+def get_polygon_mesh2(df_rectangle, polygon_id="polygon_id", coords=["coord_x", "coord_y"], 
+                     size=1, explode=True, prefix=None, path=None, partition=None) -> DataFrame:
+    """
+    Generar malla
+    ------
+        Generated polygon mesh
+
+    Params
+    ------
+    df_container_rectangle: spark DataFrame with container rectangle
+    polygon_id: string with column name of polygon ID
+    coords: tupla with columns of polygon coordinates
+    size: resolution of polygon mesh
+    explode: if False mesh is retunr in array
+    prefix: string with prefix
+    path: string with path where spark DataFrame will be saved with
+        container rectangles, if it is None it persists
+    
+    Return
+    ------
+    df_polygon_mesh: spark DataFrame with poygon mesh    
+    """
+
+    _prefix = "" if prefix is None else prefix + "_"
+
+    # Ocurren cosas raras cuando size=1, revisar
+    _polygon_id = to_list(polygon_id)
+
+    df_polygon_mesh = df_rectangle\
+        .selectExpr(
+            *_polygon_id, 
+            "array(cast(floor(min_{0}/{1}) as Integer), cast(ceiling(max_{0}/{1} - 1) as Integer)) as coord_x".format(coords[0], size),
+            "array(cast(floor(min_{0}/{1}) as Integer), cast(ceiling(max_{0}/{1} - 1) as Integer)) as coord_y".format(coords[1], size)
+        ).selectExpr(
+            "*", 
+            "explode(sequence(coord_x[0], coord_x[1])) as x"
+        ).selectExpr(
+            "*", 
+            "explode(sequence(coord_y[0], coord_y[1])) as y"
+        ).selectExpr(
+            *_polygon_id, 
+            "concat(lpad(x, length(coord_x[1]), '0'), ' ', lpad(y, length(coord_y[1]), '0')) as %scell_id" % _prefix,  
+            """
+            array(
+                array(1, x * {0}, y * {0}), 
+                array(2, (x + 1) * {0}, y * {0}), 
+                array(3, (x + 1) * {0}, (y + 1) * {0}), 
+                array(4, x * {0}, (y + 1) * {0})
+            ) as cell_vertex
+            """.format(size)
+        )
+
+    if explode:
+
+        df_polygon_mesh = df_polygon_mesh\
+            .selectExpr(
+                *_polygon_id, 
+                _prefix + "cell_id", 
+                "explode(cell_vertex) as cell_vertex"
+            ).selectExpr(
+                *_polygon_id, 
+                _prefix + "cell_id", 
+                "cast(cell_vertex[0] as Integer) as point_seq", 
+                "cell_vertex[1] as {0}".format(coords[0]), 
+                "cell_vertex[2] as {0}".format(coords[1])
+            )
+
+    df_polygon_mesh = write_persist(
+        df=df_polygon_mesh, 
+        path=path,
+        storage_level=_storage_level_,
+        alias="PolygonMesh",
+        partition=partition
+    )
+
+    return df_polygon_mesh
+
+
+def get_cell_type(df_polygon_mesh, df_polygon_side, polygon_id="polygon_id", coords=["coord_x", "coord_y"], cell_id="cell_id", path=None, partition=None, undecided=False) -> DataFrame:
+    """
+    Cell type
+    ------
+        Get cell type of mesh items
+        1. Outside
+        2. Inside
+        3. Undecided
+
+    Params
+    ------
+
+    Return
+    ------
+    """
+
+    _polygon_id = to_list(polygon_id)
+    _cell_id = to_list(cell_id)
+    _point_seq = ["point_seq"]
+
+    df_container_polygon = get_container_polygon(
+        df_point=df_polygon_mesh, 
+        df_polygon_side=df_polygon_side, 
+        polygon_id=_polygon_id,
+        point_id=_cell_id + _point_seq, 
+    )
+
+    # Falta revisar el caso donde la resolucion es mas grande que el rectangulo delimitador del poligono
+    df_cell_type1 = df_container_polygon\
+        .groupBy(
+            _polygon_id +_cell_id
+        ).count(
+        ).selectExpr(
+            "*", 
+            "case count when 4 then 'inside' else 'undecided' end as cell_type"
+        ).drop("count")
+        
+    df_cell_type = df_polygon_mesh\
+        .join(
+            df_cell_type1, _polygon_id + _cell_id, "left"
+        ).fillna(
+            "outside", subset=["cell_type"]
+        )
+
+    if not undecided:
+        df_cell_type = df_cell_type\
+            .filter("cell_type != 'outside'")
+    
+    df_cell_type = write_persist(
+        df=df_cell_type, 
+        path=path,
+        storage_level=_storage_level_,
+        alias="PolygonMeshCellType", 
+        partition=partition
+    )
+
+    unpersist(df_container_polygon, "ContainerPolygon")
+    
+    return df_cell_type
+
+
+def get_polygon_mesh(df_delimiter_rectangle, df_polygon_side, polygon_id="polygon_id", coords=["coord_x", "coord_y"], 
+                     size=1, bsize=None, path=None, partition=None) -> DataFrame:
+    
+    """
+    Generar malla
+    ------
+        Generated mesh cell type
+
+    Params
+    ------
+    df_delimiter_rectangle: spark DataFrame with container rectangle
+    polygon_id: string with column name of polygon ID
+    coords: tupla with columns of polygon coordinates
+    size: resolution of polygon mesh
+    explode: if False mesh is retunr in array
+    prefix: string with prefix
+    path: string with path where spark DataFrame will be saved with
+        container rectangles, if it is None it persists
+    
+    Return
+    ------
+    df_mesh_type: spark DataFrame with poygon mesh    
+    """
+
+    _polygon_id = to_list(polygon_id)
+    
+    df_polygon_mesh = get_polygon_mesh2(
+        df_rectangle=df_delimiter_rectangle, 
+        polygon_id=polygon_id,
+        coords=coords,
+        size=size
+    )
+    
+    path1 = path if bsize is None else None
+    
+    df_cell_type = get_cell_type(
+        df_polygon_mesh=df_polygon_mesh, 
+        df_polygon_side=df_polygon_side,
+        polygon_id=polygon_id,
+        coords=coords,
+        path=path1,
+        partition=partition
+    )
+    
+    unpersist(df_polygon_mesh, "PolygonMesh")
+    
+    if bsize is None:
+        return df_cell_type
+
+    # Refinar celdas de frontera de poligono
+    df_undecide_cell = df_cell_type\
+        .filter("cell_type = 'undecided'")
+    
+    df_delimiter_rectangle2 = get_delimiter_rectangle(
+        df_polygon=df_undecide_cell, 
+        polygon_id=_polygon_id + ["cell_id"], 
+        coords=coords
+    )
+    
+    df_polygon_mesh2 = get_polygon_mesh2(
+        df_rectangle=df_delimiter_rectangle2, 
+        polygon_id=_polygon_id + ["cell_id"],
+        coords=coords,
+        size=size/bsize,
+        prefix="sub"
+    )
+    
+    df_cell_type2 = get_cell_type(
+        df_polygon_mesh=df_polygon_mesh2, 
+        df_polygon_side=df_polygon_side,
+        polygon_id=polygon_id,
+        coords=coords,
+        cell_id=["cell_id", "sub_cell_id"]
+    )
+    
+    df_cell_type1 = df_cell_type\
+        .selectExpr(
+            "*", 
+            "cell_id as sub_cell_id"
+        )
+
+    # Unir tipo de celda
+    df_mesh_cell_type = df_cell_type2\
+        .union(
+            df_cell_type1.select(df_cell_type2.columns)
+        )
+    
+    df_mesh_cell_type = write_persist(
+        df=df_mesh_cell_type, 
+        path=path,
+        storage_level=_storage_level_,
+        alias="PolygonMeshCellType", 
+        partition=partition
+    )
+    
+    
+    unpersist(df_cell_type, "PolygonMeshCellType")
+    unpersist(df_delimiter_rectangle2, "PolygonDelimietRectangle2")
+    unpersist(df_polygon_mesh2, "PolygonMesh2")
+    
+    return df_mesh_cell_type
+
+
 def get_container_rectangle(df_point, df_delimiter_rectangle, polygon_id="polygon_id", 
-                            coords=["coord_x", "coord_y"], path=None) -> DataFrame:
+                            coords=["coord_x", "coord_y"], path=None, partition=None) -> DataFrame:
     """
     Container rectangle    
     ------
@@ -238,8 +478,9 @@ def get_container_rectangle(df_point, df_delimiter_rectangle, polygon_id="polygo
     df_container_rectangle = write_persist(
         df=df_container_rectangle, 
         path=path,
-        storage_level=__storage_level__,
-        alias="ContainerRectangle"
+        storage_level=_storage_level_,
+        alias="ContainerRectangle",
+        partition=partition
     )
       
     return df_container_rectangle
@@ -247,7 +488,7 @@ def get_container_rectangle(df_point, df_delimiter_rectangle, polygon_id="polygo
 
 def get_container_polygon(df_point, df_polygon_side, polygon_id="polygon_id", 
                           point_id="point_id", coords=["coord_x", "coord_y"], 
-                          path=None) -> DataFrame:
+                          path=None, partition=None) -> DataFrame:
     """
     Container rectangle    
     ------
@@ -323,142 +564,10 @@ def get_container_polygon(df_point, df_polygon_side, polygon_id="polygon_id",
     df_container_polygon = write_persist(
         df=df_container_polygon, 
         path=path,
-        storage_level=__storage_level__,
-        alias="ContainerPolygon"
+        storage_level=_storage_level_,
+        alias="ContainerPolygon",
+        partition=partition
     )
 
     return df_container_polygon
 
-
-def get_polygon_mesh(df_rectangle, polygon_id="polygon_id", coords=["coord_x", "coord_y"], 
-                     size=1, explode=True, prefix=None, path=None) -> DataFrame:
-    """
-    Generar malla
-    ------
-        Generated polygon mesh
-
-    Params
-    ------
-    df_container_rectangle: spark DataFrame with container rectangle
-    polygon_id: string with column name of polygon ID
-    coords: tupla with columns of polygon coordinates
-    size: resolution of polygon mesh
-    explode: if False mesh is retunr in array
-    prefix: string with prefix
-    path: string with path where spark DataFrame will be saved with
-        container rectangles, if it is None it persists
-    
-    Return
-    ------
-    df_polygon_mesh: spark DataFrame with poygon mesh    
-    """
-
-    _prefix = "" if prefix is None else prefix + "_"
-
-    # Ocurren cosas raras cuando size=1, revisar
-    _polygon_id = to_list(polygon_id)
-
-    df_polygon_mesh = df_rectangle\
-        .selectExpr(
-            *_polygon_id, 
-            "array(cast(floor(min_{0}/{1}) as Integer), cast(ceiling(max_{0}/{1} - 1) as Integer)) as coord_x".format(coords[0], size),
-            "array(cast(floor(min_{0}/{1}) as Integer), cast(ceiling(max_{0}/{1} - 1) as Integer)) as coord_y".format(coords[1], size)
-        ).selectExpr(
-            "*", 
-            "explode(sequence(coord_x[0], coord_x[1])) as x"
-        ).selectExpr(
-            "*", 
-            "explode(sequence(coord_y[0], coord_y[1])) as y"
-        ).selectExpr(
-            *_polygon_id, 
-            "concat(lpad(x, length(coord_x[1]), '0'), ' ', lpad(y, length(coord_y[1]), '0')) as %scell_id" % _prefix,  
-            """
-            array(
-                array(1, x * {0}, y * {0}), 
-                array(2, (x + 1) * {0}, y * {0}), 
-                array(3, (x + 1) * {0}, (y + 1) * {0}), 
-                array(4, x * {0}, (y + 1) * {0})
-            ) as cell_vertex
-            """.format(size)
-        )
-
-    if explode:
-
-        df_polygon_mesh = df_polygon_mesh\
-            .selectExpr(
-                *_polygon_id, 
-                _prefix + "cell_id", 
-                "explode(cell_vertex) as cell_vertex"
-            ).selectExpr(
-                *_polygon_id, 
-                _prefix + "cell_id", 
-                "cast(cell_vertex[0] as Integer) as point_seq", 
-                "cell_vertex[1] as {0}".format(coords[0]), 
-                "cell_vertex[2] as {0}".format(coords[1])
-            )
-
-    df_polygon_mesh = write_persist(
-        df=df_polygon_mesh, 
-        path=path,
-        storage_level=__storage_level__,
-        alias="PolygonMesh"
-    )
-
-    return df_polygon_mesh
-
-
-def get_cell_type(df_polygon_mesh, df_polygon_side, polygon_id="polygon_id", coords=["coord_x", "coord_y"],
-                  cell_id="cell_id", path=None) -> DataFrame:
-    """
-    Cell type
-    ------
-        Get cell type of mesh items
-        1. Outside
-        2. Inside
-        3. Undecided
-
-    Params
-    ------
-
-    Return
-    ------
-    """
-
-    _polygon_id = to_list(polygon_id)
-    _cell_id = to_list(cell_id)
-    _point_seq = ["point_seq"]
-
-    df_container_polygon = get_container_polygon(
-        df_point=df_polygon_mesh, 
-        df_polygon_side=df_polygon_side, 
-        polygon_id=_polygon_id,
-        point_id=_cell_id + _point_seq, 
-    )
-
-    # Falta revisar el caso donde la resolucion es mas grande que el rectangulo delimitador del poligono
-    df_cell_type1 = df_container_polygon\
-        .groupBy(
-            _polygon_id +_cell_id
-        ).count(
-        ).selectExpr(
-            "*", 
-            "case count when 4 then 'inside' else 'undecided' end as cell_type"
-        ).drop("count")
-        
-    df_cell_type = df_polygon_mesh\
-        .join(
-            df_cell_type1, _polygon_id + _cell_id, "left"
-        ).fillna(
-            "outside", subset=["cell_type"]
-        )
-
-    df_cell_type = write_persist(
-            df=df_cell_type, 
-            path=path,
-            storage_level=__storage_level__,
-            alias="PolygonMeshCellType"
-        )
-
-    unpersist(df_container_polygon, "ContainerPolygon")
-    
-    return df_cell_type

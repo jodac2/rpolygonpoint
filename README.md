@@ -13,13 +13,13 @@ El core de la librería ***RPolygonPoint*** consiste en *determinar si un punto 
 
 La librería tiene tres métodos principales
 
-1. `get_container_polygon`: Dado un conjunto de puntos y uno de polígonos, determina cuales de los polígonos son contenederes de los puntos.
+1. `ContainerPolygon`: Dado un conjunto de puntos y uno de polígonos, determina cuales de los polígonos son contenederes de los puntos.
 
-2. `get_random_polygon_point`: Dado un polígono y un tamaño de muestra, el método genera un conjunto de puntos aleatorios que pertenecen al polígono.
+2. `RandomPoint`: Dado un polígono y un tamaño de muestra, el método genera un conjunto de puntos aleatorios que pertenecen al polígono.
 
-3. `get_random_polygon`: Dado un número de lados y algunos parámetros de configuración (dependiendo del tipo de simulación) genera un conjuto de polígonos aleatorios.
+3. `RandomPolygon`: Dado un número de lados y algunos parámetros de configuración (dependiendo del tipo de simulación) genera un conjuto de polígonos aleatorios.
 
-## Algoritmo: Container Polygon
+## Algoritmo: ContainerPolygon
 ---
 
  La ide básica del algoritmo es utilizar el [método del rayo](https://en.wikipedia.org/wiki/Point_in_polygon) para determinar si un punto pertenece o no a un polígono dado. Sin embargo, si el número de polígonos o puntos es relativamente alto el problema se vuelve costoso en tiempo de ejecución, ya que se debe hacer el producto cartesiano entre el junto de puntos y polígonos; y posteriormente aplicar el método del rayo sobre cada una de las posibles combinaciones. Con esto es evidente que se deben utilizar métodos menos costosos que permitan reducir el tiempo de ejecución, la solución que se plantea consiste en los siguientes pasos.
@@ -47,7 +47,7 @@ Los Pasos 1 y 2 pueden verse como una especie de pre-proceso si los polígonos n
   <img src="mx_mesh.png?raw=true" alt="Mesh to México Polygon." title="Mesh to México Polygon." width="350">
 </p>
 
-## Algoritmo: Random Point
+## Algoritmo: RandomPoint
 ---
 
 El algoritmo de simulación de puntos de un poligono tiene la idea básica de un método de [muestro Gibbs](https://en.wikipedia.org/wiki/Gibbs_sampling). Es decir, en lugar de simular de la distribución multivariada completa a la vez, el muestreo Gibbs realiza simulaciones parciales a partir de las ditribuciones condicionales. El algoritmo propuesto puede resumirse en los siguientes pasos.
@@ -68,7 +68,7 @@ Sea _m_ el número de componentes tipo inside y undecided; *[x0_i,x1_i]* y *[y0_
 
 1. Se elige un componentes de manera aleatoria. Es decir, se generar un enetero aleatorio en [1, m].
 
-2. Si el componentes seleccionado es de tipo inside, entonces el punto propuesto es selecionado como un punto del polígono con probabilidad 1. 
+2. Si el componentes seleccionado es de tipo inside, se genera un punto de manera uniforme en el componente; es decir, en *[x0_i,x1_i]* y *[y0_i, y1_i]*. Entonces el punto propuesto es selecionado como un punto del polígono con probabilidad 1. 
 
 3. Si el compoente seleccionado es de tipo undecide, se genera un punto de manera uniforme en el componente; es decir, en *[x0_i,x1_i]* y *[y0_i, y1_i]*. Después, se debe utilizar el método *Container Inside* para decidir si el punto esta fuera o dentro del polígono y esto ocurre con probabilidad *1 - p_i* y *p_i*, respectivamente.
 
