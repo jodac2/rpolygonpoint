@@ -8,6 +8,7 @@ from rpolygonpoint.utils.utils import logging
 
 
 spark = SparkSession.builder.getOrCreate()
+_storage_level_ = StorageLevel.DISK_ONLY
 
 
 def Expr(*expr_list) -> list:
@@ -21,7 +22,7 @@ def Expr(*expr_list) -> list:
 
 
 def write_persist(df, path=None, storage_level=StorageLevel.DISK_ONLY, 
-                  write_mode="overwrite", alias="") -> DataFrame:
+                  write_mode="overwrite", alias="", partition=None) -> DataFrame:
     """
     Write or persist spark DataFrame
     """
@@ -32,12 +33,16 @@ def write_persist(df, path=None, storage_level=StorageLevel.DISK_ONLY,
         n = df.count()
             
         msg = "Persist DataFrame {2} with {1:,} rows: StorageLevel {0}!"
-        msg.format(storage_level, n, alias)
+        msg = msg.format(storage_level, n, alias)
         logging(name="write_persist", message=msg)
         
         return df
     
     else:
+        
+        if partition is not None:
+            
+            df = df.repartition(partition)
         
         df.write.parquet(path, mode=write_mode)
 
