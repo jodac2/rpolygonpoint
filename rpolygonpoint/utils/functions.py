@@ -265,7 +265,7 @@ def get_polygon_mesh2(df_rectangle, polygon_id="polygon_id", coords=["coord_x", 
     return df_polygon_mesh
 
 
-def get_cell_type(df_polygon_mesh, df_polygon_side, polygon_id="polygon_id", coords=["coord_x", "coord_y"], cell_id="cell_id", path=None, partition=None, undecided=False) -> DataFrame:
+def get_cell_type(df_polygon_mesh, df_polygon_side, polygon_id="polygon_id", coords=["coord_x", "coord_y"], cell_id="cell_id", path=None, partition=None, outside=False) -> DataFrame:
     """
     Cell type
     ------
@@ -276,9 +276,19 @@ def get_cell_type(df_polygon_mesh, df_polygon_side, polygon_id="polygon_id", coo
 
     Params
     ------
-
+    df_polygon: spark DataFrame with polygon points
+    df_polygon_side: spark DataFrame with polygon sides points
+        the columns `end_(coords)` contain the end of the polygon side
+    polygon_id: string with column name of polygon ID
+    coords: tupla with columns of polygon coordinates
+    cell_id: list with columns name of cell ID
+    path: string with path where spark DataFrame will be saved with
+        polygon sides points, if it is None it persists
+    outside: logic value that indicate if cell type outside should be filtered
+    
     Return
     ------
+    df_cell_type: spark DataFrame with cell type
     """
 
     _polygon_id = to_list(polygon_id)
@@ -301,7 +311,7 @@ def get_cell_type(df_polygon_mesh, df_polygon_side, polygon_id="polygon_id", coo
             "*", 
             "case count when 4 then 'inside' else 'undecided' end as cell_type"
         ).drop("count")
-        
+    
     df_cell_type = df_polygon_mesh\
         .join(
             df_cell_type1, _polygon_id + _cell_id, "left"
@@ -309,7 +319,8 @@ def get_cell_type(df_polygon_mesh, df_polygon_side, polygon_id="polygon_id", coo
             "outside", subset=["cell_type"]
         )
 
-    if not undecided:
+    if not outside:
+
         df_cell_type = df_cell_type\
             .filter("cell_type != 'outside'")
     
@@ -326,7 +337,7 @@ def get_cell_type(df_polygon_mesh, df_polygon_side, polygon_id="polygon_id", coo
     return df_cell_type
 
 
-def get_polygon_mesh(df_delimiter_rectangle, df_polygon_side, polygon_id="polygon_id", coords=["coord_x", "coord_y"], 
+def get_polygon_mesh(df_delimiter_rectangle, df_polygon_side, polygon_id="polygon_id", coords=["coord_x", "coord_y"], outside=False, 
                      size=1, bsize=None, path=None, partition=None) -> DataFrame:
     
     """
@@ -340,8 +351,10 @@ def get_polygon_mesh(df_delimiter_rectangle, df_polygon_side, polygon_id="polygo
     polygon_id: string with column name of polygon ID
     coords: tupla with columns of polygon coordinates
     size: resolution of polygon mesh
+    bsize: resolution of boundary polygon mesh
     explode: if False mesh is retunr in array
     prefix: string with prefix
+    outside: logic value that indicate if cell type outside should be filtered
     path: string with path where spark DataFrame will be saved with
         container rectangles, if it is None it persists
     
@@ -420,7 +433,6 @@ def get_polygon_mesh(df_delimiter_rectangle, df_polygon_side, polygon_id="polygo
         alias="PolygonMeshCellType", 
         partition=partition
     )
-    
     
     unpersist(df_cell_type, "PolygonMeshCellType")
     unpersist(df_delimiter_rectangle2, "PolygonDelimietRectangle2")

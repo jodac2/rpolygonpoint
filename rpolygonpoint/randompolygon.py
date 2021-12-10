@@ -1,34 +1,8 @@
 from pyspark.sql.functions import expr
-import plotly.graph_objects as go
-import pandas as pd
 from rpolygonpoint.utils.spark import spark, write_persist
 from rpolygonpoint.utils.utils import logging
 from rpolygonpoint.utils.random import spark_seed, gen_rnorm, print_range
-
-
-def plot_polygon(df_polygon, size=[600, 600]):
-    """
-    Plot polygons
-    """
-    
-    lst_pol = df_polygon\
-        .groupBy(
-            "polygon_id"
-        ).agg(expr(
-            "array_sort(collect_list(array(point_seq, coord_x, coord_y))) as point"
-        )).collect()
-    
-    fig = go.Figure()
-
-    for pol in lst_pol:
-
-        df_pol = pd.DataFrame(pol[1], columns=["point_seq", "coord_x", "coord_y"])
-        fig.add_trace(go.Scatter(x=df_pol["coord_x"], y=df_pol["coord_y"], mode="lines", name=pol[0], fill="toself", line=dict(width=1, dash="dash")))
-
-    fig.update_layout(width=size[0], height=size[1], showlegend=True)
-
-    return fig
-
+from rpolygonpoint.utils.plot import plotly_polygon
 
 class SetRandomPolygon(object):
     """
@@ -124,7 +98,7 @@ class RandomPolygon(SetRandomPolygon):
         self._vertex_number()
         self._radius_scale()
         self._translate_vertex()
-        self._config()
+        self._vertex_sequence()
         self._angle_amplitude()
         self._radius_length()
         self._polygon()
@@ -139,9 +113,9 @@ class RandomPolygon(SetRandomPolygon):
         
         return df_polygon
     
-    def plot(self, size=[600, 600]):
+    def plotly(self, size=[600, 600]):
         
-        fig = plot_polygon(self.df_polygon, size)
+        fig = plotly_polygon(self.df_polygon, size)
         
         return fig
         
@@ -234,9 +208,9 @@ class RandomPolygon(SetRandomPolygon):
         
         self._df_vertex_translate = df_vertex_translate
     
-    def _config(self):
+    def _vertex_sequence(self):
         """
-        Generated vertex secuence
+        Generated vertex sequence
         """
         
         df_config = self._df_vertex_translate\
