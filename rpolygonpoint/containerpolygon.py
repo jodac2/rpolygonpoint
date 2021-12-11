@@ -1,7 +1,7 @@
 from pyspark.sql import DataFrame
 from rpolygonpoint.utils.spark import spark
-from rpolygonpoint.utils.functions import  get_delimiter_rectangle
-from rpolygonpoint.utils.functions import  get_polygon_side,
+from rpolygonpoint.utils.functions import get_delimiter_rectangle
+from rpolygonpoint.utils.functions import get_polygon_side
 from rpolygonpoint.utils.functions import get_polygon_mesh
 
 def is_data_frame(df, path):
@@ -72,6 +72,15 @@ class SetContainerPolygon(object):
     
     def set_mesh_bsize(self, size):
         self.mesh_bsize = size
+
+    def set_partition_delimiter_rectangle(self, partition):
+        self.partition_delimiter_rectangle = partition
+    
+    def set_partition_polygon_side(self, partition):
+        self.partition_polygon_side = partition
+    
+    def set_partition_polygon_mesh(self, partition):
+        self.partition_polygon_mesh = partition
     
     def _set_paths(self):
         """
@@ -83,15 +92,12 @@ class SetContainerPolygon(object):
             self._path_delimiter_rectangle = self.path_data + self._tbl_delimiter_rectangle
             self._path_polygon_side = self.path_data + self._tbl_polygon_side
             self._path_polygon_mesh = self.ath_data + self._tbl_polygon_mesh
-    
-    def load_polygon_mesh(self):
-        """
-        Load preprocesor
-        """
 
-        self.df_delimiter_rectangle = self._spark.read.parquet(self._path_delimiter_rectangle)
-        self.df_polygon_side = self._spark.read.parquet(self._path_polygon_side)
-        self.df_polygon_mesh = self._spark.read.parquet(self._path_polygon_mesh)
+        else:
+            
+            self._path_delimiter_rectangle = None
+            self._path_polygon_side = None
+            self._path_polygon_mesh = None
 
 
 class MeshContainerPolygon(SetContainerPolygon):
@@ -111,6 +117,15 @@ class MeshContainerPolygon(SetContainerPolygon):
         self._delimiter_reactangle()
         self._polygon_side()
         self._polygon_mesh()
+    
+    def load_polygon_mesh(self):
+        """
+        Load preprocesor
+        """
+
+        self.df_delimiter_rectangle = self._spark.read.parquet(self._path_delimiter_rectangle)
+        self.df_polygon_side = self._spark.read.parquet(self._path_polygon_side)
+        self.df_polygon_mesh = self._spark.read.parquet(self._path_polygon_mesh)
     
     def _delimiter_reactangle(self):
         """
@@ -134,7 +149,7 @@ class MeshContainerPolygon(SetContainerPolygon):
         
         df_polygon_side = get_polygon_side(
             df_polygon=self.df_polygon,
-            polygon_id=self.self.polygon_id,
+            polygon_id=self.polygon_id,
             coords=self.coords,
             point_seq=self.point_seq,
             path=self._path_polygon_side,
