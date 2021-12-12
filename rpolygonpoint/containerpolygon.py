@@ -4,7 +4,8 @@ from rpolygonpoint.utils.functions import get_delimiter_rectangle
 from rpolygonpoint.utils.functions import get_polygon_side
 from rpolygonpoint.utils.functions import get_polygon_mesh
 
-def is_data_frame(df, path):
+
+def as_data_frame(df, path):
     
     if type(df) is DataFrame:
        
@@ -40,7 +41,7 @@ class SetContainerPolygon(object):
         """
 
         self.df_polygon = df_polygon
-        self.polygon_id = "polygon_id"
+        self.polygon_id = ["polygon_id"]
         self.coords = ["coord_x", "coord_y"]
         self.path_data = None
         self.point_seq = "point_seq"
@@ -91,7 +92,7 @@ class SetContainerPolygon(object):
             
             self._path_delimiter_rectangle = self.path_data + self._tbl_delimiter_rectangle
             self._path_polygon_side = self.path_data + self._tbl_polygon_side
-            self._path_polygon_mesh = self.ath_data + self._tbl_polygon_mesh
+            self._path_polygon_mesh = self.path_data + self._tbl_polygon_mesh
 
         else:
             
@@ -140,7 +141,7 @@ class MeshContainerPolygon(SetContainerPolygon):
             partition=self.partition_delimiter_rectangle
         )
 
-        self.df_delimiter_rectangle = is_data_frame(df_delimiter_rectangle, self._path_delimiter_rectangle)
+        self.df_delimiter_rectangle = as_data_frame(df_delimiter_rectangle, self._path_delimiter_rectangle)
     
     def _polygon_side(self):
         """
@@ -156,7 +157,7 @@ class MeshContainerPolygon(SetContainerPolygon):
             partition=self.partition_polygon_side
         )
 
-        self.df_polygon_side = is_data_frame(df_polygon_side, self._path_polygon_side)
+        self.df_polygon_side = as_data_frame(df_polygon_side, self._path_polygon_side)
     
     def _polygon_mesh(self):
         """
@@ -174,7 +175,7 @@ class MeshContainerPolygon(SetContainerPolygon):
             partition=self.partition_polygon_mesh
         )
 
-        self.df_polygon_mesh = is_data_frame(df_polygon_mesh, self._path_polygon_mesh)
+        self.df_polygon_mesh = as_data_frame(df_polygon_mesh, self._path_polygon_mesh)
 
 
 class ContainerPolygon(MeshContainerPolygon):

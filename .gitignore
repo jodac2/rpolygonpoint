@@ -22,5 +22,5 @@ bin-release/
 Jupyter Notebook.lnk
 __pycache__
 logs
-*.ipynb
+rpolygonpoint.ipynb
 data

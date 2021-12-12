@@ -163,15 +163,20 @@ def get_polygon_side(df_polygon, polygon_id="polygon_id", coords=["coord_x", "co
     )
     
     # Formar lados del poligono
+    _condition = ["t0.{0} = t1.{0}".format(ci) for ci in _polygon_id]
+    _condition = " and ".join(_condition)
+    _condition += " and t0._seq_ + 1 = t1._seq_"
+
     df_polygon_sides = df_polygon2.alias("t0")\
         .join(
             df_polygon2.alias("t1"), 
-            expr("t0._seq_ + 1 = t1._seq_"), 
+            expr(_condition), 
             "inner"
         ).selectExpr(
             "t0.*", 
             "t1.{0} as end_{0}".format(coords[0]), 
-            "t1.{0} as end_{0}".format(coords[1])
+            "t1.{0} as end_{0}".format(coords[1]), 
+            "t1.{0} as end_{0}".format(point_seq)
         ).drop("_seq_")
     
     df_polygon_sides = write_persist(
@@ -228,7 +233,7 @@ def get_polygon_mesh2(df_rectangle, polygon_id="polygon_id", coords=["coord_x", 
             "explode(sequence(coord_y[0], coord_y[1])) as y"
         ).selectExpr(
             *_polygon_id, 
-            "concat(lpad(x, length(coord_x[1]), '0'), ' ', lpad(y, length(coord_y[1]), '0')) as %scell_id" % _prefix,  
+            "concat_ws(' ', x, y, {1}) as {0}cell_id".format(_prefix, size),  
             """
             array(
                 array(1, x * {0}, y * {0}), 
@@ -302,23 +307,76 @@ def get_cell_type(df_polygon_mesh, df_polygon_side, polygon_id="polygon_id", coo
         point_id=_cell_id + _point_seq, 
     )
 
-    # Falta revisar el caso donde la resolucion es mas grande que el rectangulo delimitador del poligono
     df_cell_type1 = df_container_polygon\
         .groupBy(
-            _polygon_id +_cell_id
+            _polygon_id + _cell_id
         ).count(
         ).selectExpr(
             "*", 
             "case count when 4 then 'inside' else 'undecided' end as cell_type"
         ).drop("count")
     
-    df_cell_type = df_polygon_mesh\
+    # Algunas de las celdas tipo outside pueden ser clasificadas de manera erronea
+    # debido a que no tienen ninguno vertice dentro del poligono, pero si tiene
+    # puntos del poligono, el siguiente codigo reclasifica a tipo undecided
+
+    ############################################################################
+    # OUTSIDE TO UNDECIDE
+    ############################################################################
+    
+    # Identificar celdas tipo outside que contienen al menos un punto del poligono
+    df_outside_pre = df_polygon_mesh\
         .join(
-            df_cell_type1, _polygon_id + _cell_id, "left"
+            df_cell_type1, _polygon_id + _cell_id, "anti"
+        )
+    
+    df_delimiter_rectangle_out = get_delimiter_rectangle(
+        df_polygon=df_outside_pre, 
+        polygon_id=_polygon_id + _cell_id, 
+        coords=coords
+    )
+
+    df_container_rectangle_out = get_container_rectangle(
+        df_point=df_polygon_side, 
+        df_delimiter_rectangle=df_delimiter_rectangle_out, 
+        polygon_id=_polygon_id + _cell_id, 
+        coords=coords, 
+        prefix="out"
+    )
+
+    df_undecided_ret = df_container_rectangle_out\
+        .selectExpr([
+            "out_{0} as {0}".format(pi) for pi in _polygon_id + _cell_id
+        ]).distinct(
+        ).selectExpr(
+            "*", 
+            "'undecided' as cell_type"
+        )
+    
+    df_cell_type2 = df_outside_pre\
+        .drop(
+            "cell_type"
+        ).join(
+            df_undecided_ret, _polygon_id + _cell_id, "left"
         ).fillna(
             "outside", subset=["cell_type"]
         )
+    ############################################################################
+    # END OUTSIDE TO UNDECIDE
+    ############################################################################
+    
+    df_cell_type = df_cell_type1\
+        .union(
+            df_cell_type2.select(df_cell_type1.columns)
+        )
 
+    df_cell_type = df_polygon_mesh\
+        .join(
+            df_cell_type, _polygon_id + _cell_id, "left"
+        ).select(
+            df_polygon_mesh.columns + ["cell_type"]
+        )
+    
     if not outside:
 
         df_cell_type = df_cell_type\
@@ -333,7 +391,9 @@ def get_cell_type(df_polygon_mesh, df_polygon_side, polygon_id="polygon_id", coo
     )
 
     unpersist(df_container_polygon, "ContainerPolygon")
-    
+    unpersist(df_delimiter_rectangle_out, "DelimiterRectangleOutside")
+    unpersist(df_container_rectangle_out, "ContainerRectangleOutside")
+
     return df_cell_type
 
 
@@ -380,7 +440,8 @@ def get_polygon_mesh(df_delimiter_rectangle, df_polygon_side, polygon_id="polygo
         polygon_id=polygon_id,
         coords=coords,
         path=path1,
-        partition=partition
+        partition=partition,
+        outside=outside
     )
     
     unpersist(df_polygon_mesh, "PolygonMesh")
@@ -411,11 +472,14 @@ def get_polygon_mesh(df_delimiter_rectangle, df_polygon_side, polygon_id="polygo
         df_polygon_side=df_polygon_side,
         polygon_id=polygon_id,
         coords=coords,
-        cell_id=["cell_id", "sub_cell_id"]
+        cell_id=["cell_id", "sub_cell_id"],
+        outside=outside
     )
     
     df_cell_type1 = df_cell_type\
-        .selectExpr(
+        .filter(
+            "cell_type = 'inside'"
+        ).selectExpr(
             "*", 
             "cell_id as sub_cell_id"
         )
@@ -442,7 +506,7 @@ def get_polygon_mesh(df_delimiter_rectangle, df_polygon_side, polygon_id="polygo
 
 
 def get_container_rectangle(df_point, df_delimiter_rectangle, polygon_id="polygon_id", 
-                            coords=["coord_x", "coord_y"], path=None, partition=None) -> DataFrame:
+                            coords=["coord_x", "coord_y"], path=None, partition=None, prefix=None) -> DataFrame:
     """
     Container rectangle    
     ------
@@ -468,6 +532,7 @@ def get_container_rectangle(df_point, df_delimiter_rectangle, polygon_id="polygo
     is_inside = is_inside.format(*coords)
     
     _polygon_id = to_list(polygon_id)
+    _prefix = "" if prefix is None else prefix + "_"
 
     df_container_rectangle = df_point.alias("t0")\
         .crossJoin(
@@ -484,7 +549,7 @@ def get_container_rectangle(df_point, df_delimiter_rectangle, polygon_id="polygo
             "is_inside = 1"
         ).selectExpr(
             "t0.*", 
-            *["t1." + ci for ci in _polygon_id]
+            *["t1.{0} as {1}{0}".format(ci, _prefix) for ci in _polygon_id]
         )
     
     df_container_rectangle = write_persist(
@@ -582,4 +647,3 @@ def get_container_polygon(df_point, df_polygon_side, polygon_id="polygon_id",
     )
 
     return df_container_polygon
-
