@@ -12,7 +12,7 @@ from rpolygonpoint.utils.utils import to_list
 
 def polygon_to_list(df_polygon, polygon_id=["polygon_id"], coords = ["coord_x", "coord_y"], point_seq="point_seq"):
     """
-    Spark DataFrame to llist
+    Polygon spark DataFrame to llist
     """
     
     lst_polygon = df_polygon\
@@ -27,6 +27,22 @@ def polygon_to_list(df_polygon, polygon_id=["polygon_id"], coords = ["coord_x", 
         )).selectExpr("collect_list(polygon)").first()[0]
     
     return lst_polygon
+
+
+def point_to_list(df_point, coords = ["coord_x", "coord_y"]):
+    """
+    Point spark DataFrame to llist
+    """
+    
+    lst_point = df_point\
+        .selectExpr(
+            "collect_list(%s) as x" % coords[0], 
+            "collect_list(%s) as y" % coords[1]
+    ).first()
+    
+    lst_point = [*lst_point]
+    
+    return lst_point
 
 
 def plot_polygon(polygons, title=None, tick=1, color="#00A394", alpha=0.5, style="-", width=1, figsize=(5, 5), fontsize=1):
@@ -78,6 +94,20 @@ def plot_polygon(polygons, title=None, tick=1, color="#00A394", alpha=0.5, style
     return ax, fig
 
 
+def get_axis_limit(x, tick):
+    """
+    Get axis lim
+    """
+
+    x_min = min(x)
+    x_max = max(x)
+
+    c_max =  1 if x_max % tick != 0 else 0
+    limits = [x_min//tick * tick, (x_max//tick + c_max) * tick]
+
+    return limits
+
+
 def add_polygon(plt, polygons, color="#00A394", alpha=0.5, style="-", width=1):
     """
     Add polygont to plot
@@ -105,28 +135,14 @@ def add_polygon(plt, polygons, color="#00A394", alpha=0.5, style="-", width=1):
     return ax, fig
       
 
-def get_axis_limit(x, tick):
-    """
-    Get axis lim
-    """
-
-    x_min = min(x)
-    x_max = max(x)
-
-    c_max =  1 if x_max % tick != 0 else 0
-    limits = [x_min//tick * tick, (x_max//tick + c_max) * tick]
-
-    return limits
-
-
-def add_point(plt, x, y, color="red", alpha=1, marker="o", size=1.5):
+def add_point(plt, points, color="red", alpha=1, marker="o", size=1.5):
     """
     Add points to plot
     """
 
     ax, fig = plt
     
-    ax.scatter(x, y, color=color, marker=marker, alpha=alpha, linewidths=size)
+    ax.scatter(points[0], points[1], color=color, marker=marker, alpha=alpha, linewidths=size)
     
     return ax, fig
 
