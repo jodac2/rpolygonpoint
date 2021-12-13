@@ -305,6 +305,7 @@ def get_cell_type(df_polygon_mesh, df_polygon_side, polygon_id="polygon_id", coo
         df_polygon_side=df_polygon_side, 
         polygon_id=_polygon_id,
         point_id=_cell_id + _point_seq, 
+        coords=coords
     )
 
     df_cell_type1 = df_container_polygon\
@@ -505,7 +506,7 @@ def get_polygon_mesh(df_delimiter_rectangle, df_polygon_side, polygon_id="polygo
     return df_mesh_cell_type
 
 
-def get_container_rectangle(df_point, df_delimiter_rectangle, polygon_id="polygon_id", 
+def get_container_rectangle(df_point, df_delimiter_rectangle, polygon_id="polygon_id", add_cols=[],
                             coords=["coord_x", "coord_y"], path=None, partition=None, prefix=None) -> DataFrame:
     """
     Container rectangle    
@@ -534,10 +535,34 @@ def get_container_rectangle(df_point, df_delimiter_rectangle, polygon_id="polygo
     _polygon_id = to_list(polygon_id)
     _prefix = "" if prefix is None else prefix + "_"
 
-    df_container_rectangle = df_point.alias("t0")\
-        .crossJoin(
-            df_delimiter_rectangle.alias("t1")
-        ).selectExpr(
+    cols = [pi for pi in _polygon_id if pi in df_point.columns]
+    by_polygon = len(cols) == len(_polygon_id)
+
+    if by_polygon:
+        
+        # Se especifica poligonos a valirdar
+        df_container_rectangle = df_point.alias("t0")\
+            .join(
+                df_delimiter_rectangle.alias("t1"), 
+                _polygon_id, "inner"
+            )
+
+        _cols = ["t0.*"]
+    
+    else:
+
+        # No se especifica polygonos a validar
+        df_container_rectangle = df_point.alias("t0")\
+            .crossJoin(
+                df_delimiter_rectangle.alias("t1")
+            )
+
+        _cols = ["t0.*"] + ["t1.{0} as {1}{0}".format(ci, _prefix) for ci in _polygon_id]
+    
+    _add_cols = ["t1.{0} as {1}{0}".format(ci, _prefix) for ci in add_cols]
+
+    df_container_rectangle = df_container_rectangle\
+        .selectExpr(
             "*", 
             """
             case 
@@ -548,8 +573,7 @@ def get_container_rectangle(df_point, df_delimiter_rectangle, polygon_id="polygo
         ).filter(
             "is_inside = 1"
         ).selectExpr(
-            "t0.*", 
-            *["t1.{0} as {1}{0}".format(ci, _prefix) for ci in _polygon_id]
+            _cols + _add_cols
         )
     
     df_container_rectangle = write_persist(

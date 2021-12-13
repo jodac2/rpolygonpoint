@@ -1,12 +1,21 @@
 from pyspark.sql import DataFrame
-from rpolygonpoint.utils.spark import spark
+from rpolygonpoint.utils.spark import spark, _storage_level_, unpersist
+from rpolygonpoint.utils.functions import to_list, write_persist
 from rpolygonpoint.utils.functions import get_delimiter_rectangle
 from rpolygonpoint.utils.functions import get_polygon_side
 from rpolygonpoint.utils.functions import get_polygon_mesh
+from rpolygonpoint.utils.functions import get_container_rectangle
+from rpolygonpoint.utils.functions import get_container_polygon
 
 
 def as_data_frame(df, path):
-    
+    """"
+    As spark DataFrame
+    ------
+        If df is spark DataFrame then return df
+        other wise load parquet in path
+    """
+
     if type(df) is DataFrame:
        
         return df
@@ -189,8 +198,78 @@ class ContainerPolygon(MeshContainerPolygon):
         
         self.df_polygon = df_polygon
     
-    def is_inside(self):
+    def get_container_polygon(self, df_point, point_id="point_id", path=None, partition=None):
+        """
+        Polygon container
+        """
 
-        """
-        CODE
-        """
+        _polygon_id = to_list(self.polygon_id)
+        _point_id = to_list(point_id)
+        
+        # Identificar posible poligono al que petencese usando poligono delimitador
+        df_container_rectangle = get_container_rectangle(
+            df_point=df_point, 
+            df_delimiter_rectangle=self.df_delimiter_rectangle, 
+            polygon_id=self.polygon_id,
+            coords=self.coords
+        )
+        
+        # Identiicar celda a la que pertence el punto
+        df_mesh_delimiter_rectangle = get_delimiter_rectangle(
+            df_polygon=self.df_polygon_mesh, 
+            polygon_id=_polygon_id + ["cell_id", "sub_cell_id", "cell_type"], 
+            coords=self.coords
+        )
+        
+        df_container_rectangle = get_container_rectangle(
+            df_point=df_container_rectangle, 
+            df_delimiter_rectangle=df_mesh_delimiter_rectangle, 
+            coords=self.coords,
+            polygon_id=self.polygon_id, 
+            add_cols=["cell_id", "sub_cell_id", "cell_type"]
+        )
+        
+        # Puntos que estan en celda tipo undecided
+        df_cell_undecided = df_container_rectangle\
+            .filter(
+                "cell_type = 'undecided'"
+            ).select(
+                _polygon_id + _point_id + self.coords
+
+            )
+        
+        # Validar si el punto esta dentro del polygon
+        df_container_polygon = get_container_polygon(
+            df_point=df_cell_undecided, 
+            df_polygon_side=self.df_polygon_side, 
+            polygon_id=self.polygon_id,
+            point_id=point_id, 
+            coords=self.coords
+        )
+
+        # Container Polygon
+        df_cp1 = df_container_rectangle\
+            .select(_point_id + _polygon_id)
+
+        df_cp2 = df_container_polygon\
+            .select(_point_id + _polygon_id)
+
+        df_container_polygon = df_cp1.union(df_cp2)\
+            .join(
+                df_point, point_id, "inner"
+            )
+
+        df_container_polygon = write_persist(
+            df=df_container_polygon, 
+            path=path,
+            storage_level=_storage_level_,
+            alias="ContainerPolygon",
+            partition=partition
+        )
+        
+        unpersist(df_container_rectangle, "ContainerRectangle")
+        unpersist(df_mesh_delimiter_rectangle, "DelimiterRectangle-MeshCell")
+        unpersist(df_container_rectangle, "ContainerRectangle-MeshCell")
+        unpersist(df_container_polygon, "ContainerPolygon-Undecided")
+    
+        return df_container_polygon
