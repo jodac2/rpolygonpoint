@@ -54,8 +54,9 @@ class SetContainerPolygon(object):
         self.coords = ["coord_x", "coord_y"]
         self.path_data = None
         self.point_seq = "point_seq"
-        self.mesh_size = 1
-        self.mesh_bsize = 2
+        self.mesh_split = 2
+        self.mesh_level = 4
+        self.earned_prop = 0.7
         
         self.partition_delimiter_rectangle = 1
         self.partition_polygon_side = 1
@@ -77,12 +78,15 @@ class SetContainerPolygon(object):
     def set_point_seq(self, seq):
         self.point_seq = seq
     
-    def set_mesh_size(self, size):
-        self.mesh_size = size
+    def set_mesh_split(self,split):
+        self.mesh_split = split
     
-    def set_mesh_bsize(self, size):
-        self.mesh_bsize = size
-
+    def set_mesh_level(self, level):
+        self.mesh_level = level
+    
+    def set_earned_prop(self, prop):
+        self.earned_prop = prop
+    
     def set_partition_delimiter_rectangle(self, partition):
         self.partition_delimiter_rectangle = partition
     
@@ -178,8 +182,9 @@ class MeshContainerPolygon(SetContainerPolygon):
             df_polygon_side=self.df_polygon_side, 
             polygon_id=self.polygon_id,
             coords=self.coords,
-            size=self.mesh_size,
-            bsize=self.mesh_bsize,
+            split=self.mesh_split,
+            level=self.mesh_level,
+            prop=self.earned_prop, 
             path=self._path_polygon_mesh,
             partition=self.partition_polygon_mesh
         )
@@ -217,7 +222,7 @@ class ContainerPolygon(MeshContainerPolygon):
         # Identiicar celda a la que pertence el punto
         df_mesh_delimiter_rectangle = get_delimiter_rectangle(
             df_polygon=self.df_polygon_mesh, 
-            polygon_id=_polygon_id + ["cell_id", "sub_cell_id", "cell_type"], 
+            polygon_id=_polygon_id + ["cell_id", "cell_type"], 
             coords=self.coords
         )
         
@@ -226,7 +231,7 @@ class ContainerPolygon(MeshContainerPolygon):
             df_delimiter_rectangle=df_mesh_delimiter_rectangle, 
             coords=self.coords,
             polygon_id=self.polygon_id, 
-            add_cols=["cell_id", "sub_cell_id", "cell_type"]
+            add_cols=["cell_id", "cell_type"]
         )
         
         # Puntos que estan en celda tipo undecided

@@ -1,14 +1,44 @@
 import findspark
 findspark.init()
 
-from pyspark import StorageLevel
+from pyspark import SparkConf, StorageLevel
 from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql.functions import expr
 from rpolygonpoint.utils.utils import logging
 
 
-spark = SparkSession.builder.getOrCreate()
+spark_conf = (
+    SparkConf()
+        .set("spark.executor.cores", 1)
+        .set("spark.executor.instances", 4)
+        .set("spark.dynamicAllocation.minExecutors", 0)
+        .set("spark.dynamicAllocation.maxExecutors", 4)
+        .set("spark.dynamicAllocation.enabled", False)
+        .set("spark.sql.shuffle.partitions", 4)
+        .set("spark.driver.memory", "8g")
+)
+
+
+spark = (
+    SparkSession
+        .builder
+        .config(conf=spark_conf)
+        .appName("random-polygon-point")
+        .getOrCreate()
+)
+
+
 _storage_level_ = StorageLevel.DISK_ONLY
+
+
+def copy_df(df):
+    """
+    Copy spark DataFrame
+    """
+    
+    dfc = df.toDF(*df.columns)
+    
+    return dfc
 
 
 def Expr(*expr_list) -> list:

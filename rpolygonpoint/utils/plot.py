@@ -108,7 +108,7 @@ def get_axis_limit(x, tick):
     return limits
 
 
-def add_polygon(plt, polygons, color="#00A394", alpha=0.5, style="-", width=1):
+def add_polygon(plt, polygons, color="#00A394", border_color="white", alpha=0.5, style="-", width=1):
     """
     Add polygont to plot
     """
@@ -125,7 +125,7 @@ def add_polygon(plt, polygons, color="#00A394", alpha=0.5, style="-", width=1):
 
     p = PatchCollection(patches, alpha=alpha)
     p.set_facecolor(color)
-    p.set_edgecolor(color)
+    p.set_edgecolor(border_color)
     p.set_linestyles(style)
     p.set_linewidth(width)
     
@@ -133,7 +133,7 @@ def add_polygon(plt, polygons, color="#00A394", alpha=0.5, style="-", width=1):
     ax.add_collection(p)
     
     return ax, fig
-      
+
 
 def add_point(plt, points, color="red", alpha=1, marker="o", size=1.5):
     """
