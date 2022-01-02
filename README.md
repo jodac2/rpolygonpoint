@@ -48,7 +48,7 @@ En la iteración siguiente, cada una de las celdas tipo *undecided* se dividen e
 Los Pasos 1 y 2 pueden verse como una especie de pre-proceso si los polígonos no se modifican con el tiempo. El paso final es determinar dentro de cual celda de la malla del rectángulo delimitador se encuentra el punto, si es que lo está. Si el punto se encuentra en una celda tipo ***outside*** o ***inside***, entonces automáticamente se puede determinar si el punto está dentro o fuera del polígono. Si la celda es tipo ***undecided***, entonces se debe emplear el método del rayo para decidir.
 
 <p align="center">
-  <img src="mx_split_polygon_mesh.png?raw=true" alt="Mesh to México Polygon." title="Mesh to México Polygon." width="1000">
+  <img src="mx_split_polygon_mesh.png?raw=true" alt="Mesh to México Polygon." title="Mesh to México Polygon." width="100%">
 </p>
 
 ## Algoritmo: RandomPoint
@@ -80,6 +80,11 @@ Sea $C$ el número de componentes tipo inside y undecided; $[x_{0i}, x_{1i}]$ y 
 2. Se genera un punto propuesta $u$ de manera uniforme en el componente; es decir, en $[x_{0i}, x_{1i}]$ y $[y_{0i}, y_{1i}]$.
 
 2. Si el componente seleccionado $i$ es tipo inside, el punto propuesto $u$ es selecionado como un punto del polígono con probabilidad 1. Si el compoente seleccionado es de tipo undecide, se debe utilizar el método *Container Inside* para decidir si el punto esta dentro o fuera del polígono y esto ocurre con probabilidad $p_i$ y $1 - p_i$, respectivamente.
+
+
+<p align="center">
+  <img src="mx_random_point.png?raw=true" alt="México Polygon Random Point." title="México Polygon Random Point." width="100%">
+</p>
 
 
 ## Por hacer
