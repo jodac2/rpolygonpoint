@@ -137,26 +137,43 @@ def get_rand_u2(df_cells, size="size", polygon_id="polygon_id", coords=["coord_x
     return df_rand_u2
 
 
-def get_rand2_u2(df_aceptation_rate, size, polygon_id="polygon_id", coords=["coord_x", "coord_y"], prefix="coord", path=None, seed=None):
+def get_rand2_u2(df_aceptation_rate, size, polygon_id="polygon_id", coords=["coord_x", "coord_y"], prefix="coord", path=None, seed=None, comp=False):
     """
     Random number in mesh cell
     """
     
     _polygon_id = to_list(polygon_id)
 
-    df_cell_size = df_aceptation_rate\
+    df_rsize = df_aceptation_rate\
         .groupBy(
             polygon_id
         ).agg(
-            expr("mean(aceptation_rate) as rate"),
-            expr("count(1) as cell_number")
+            expr("mean(aceptation_rate) as aceptation_rate")
         ).selectExpr(
             "*", 
-            "{0} / rate as rsize".format(size)
-        ).selectExpr(
-            *_polygon_id,
-            "ceil(rsize/cell_number + log(10, rsize/cell_number + 1)) as cell_size"
+            "{0} / aceptation_rate as rsize".format(size)
+        ).drop(
+            "aceptation_rate"
         )
+    
+    _comp = " + log(10, rsize * sample_prop + 1)" if comp else ""
+
+    df_cell_size = df_aceptation_rate\
+        .join(
+            df_rsize, polygon_id, "left"
+        ).selectExpr(
+            *_polygon_id, 
+            "cell_id",
+            "rsize * sample_prop as size"
+        ).selectExpr(
+            "*",
+            """
+            case 
+                when rand(%s) > size - floor(size) then floor(size)
+                else ceil(size)
+            end as cell_size 
+            """ % spark_seed(seed)
+        ).drop("size")
     
     rand_u2 = expr_rand_u2(
         coord_x=["min_" + coords[0], "max_" + coords[0]], 
@@ -167,13 +184,15 @@ def get_rand2_u2(df_aceptation_rate, size, polygon_id="polygon_id", coords=["coo
     
     df_rand_u2 = df_aceptation_rate\
         .join(
-            df_cell_size, polygon_id, "left"
+            df_cell_size, _polygon_id + ["cell_id"], "left"
         ).selectExpr(
-            "*","explode(sequence(1, cell_size)) as _index_"
+            "*", 
+            "explode(sequence(1, cell_size)) as rand_id"
         ).selectExpr(
             *_polygon_id, 
             "cell_id", 
-            "_index_",
+            "cell_type",
+            "rand_id",
             *rand_u2
         )
     

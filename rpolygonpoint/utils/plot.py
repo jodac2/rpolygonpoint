@@ -147,33 +147,33 @@ def add_point(plt, points, color="red", alpha=1, marker="o", size=1.5):
     return ax, fig
 
 
-def plotly_polygon(df_polygon, size=[600, 600], polygon_id="polygon_id", coords=["coord_x", "coord_y"], point_seq="point_seq"):
+def plotly_polygon(df_polygon, size=(5, 5), polygon_id="polygon_id", coords=["coord_x", "coord_y"], point_seq="point_seq"):
     """
     Plot polygons
     """
     
-    lst_polygon = df_polygon\
-        .groupBy(
-            polygon_id
-        ).agg(expr(
-            "array_sort(collect_list(array({2}, {0}, {1}))) as point".format(*coords, point_seq)
-        )).collect()
+    lst_polygon = polygon_to_list(
+        df_polygon=df_polygon, 
+        polygon_id=polygon_id, 
+        coords=coords, 
+        point_seq=point_seq
+    )
     
     fig = go.Figure()
 
     for polygon in lst_polygon:
         
-        df_polygon = pd.DataFrame(polygon[1], columns=["point_seq", "coord_x", "coord_y"])
+        df_polygon = pd.DataFrame(polygon, columns=["coord_x", "coord_y"])
         
         fig.add_trace(go.Scatter(
             x=df_polygon["coord_x"], 
             y=df_polygon["coord_y"], 
             mode="lines", 
-            name=polygon[0], 
+            name="", 
             fill="toself", 
             line=dict(width=1, dash="dash")
         ))
 
-    fig.update_layout(width=size[0], height=size[1], showlegend=True)
+    fig.update_layout(width=100*size[0], height=100*size[1], showlegend=False)
 
     return fig
