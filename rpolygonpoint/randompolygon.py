@@ -59,6 +59,13 @@ class SetRandomPolygon(object):
     def set_radius_seed(self, seed):
         self.radius_seed = seed
 
+    def set_seeds(self, seeds):
+
+        self.vertex_seed = seeds[0]
+        self.scale_seed = seeds[1]
+        self.translate_seed = seeds[2]
+        self.angle_seed = seeds[3]
+        self.radius_seed = seeds[4]
 
 class RandomPolygon(SetRandomPolygon):
     """

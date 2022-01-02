@@ -16,6 +16,8 @@ class SetRandomPoint(ContainerPolygon):
     
     # Ruta de tablas para preprocesor
     _path_aceptation_rate = None
+
+    _comp = False
     
     def __init__(self, df_polygon=None, psize=100, seed=None):
         
@@ -106,11 +108,35 @@ class AceptationRadomPoint(SetRandomPoint):
                 "count/%s as rate" % self.psize
             ).drop("count")
 
-        df_cells = get_delimiter_rectangle(
+        df_cells_dr = get_delimiter_rectangle(
                 df_polygon=self.df_polygon_mesh, 
                 polygon_id=_polygon_id + ["cell_id", "cell_level", "cell_type"],
                 coords=self.coords
             )
+        
+        df_cell_area = df_cells_dr\
+            .selectExpr(
+                "*", 
+                "(max_coord_x - min_coord_x) * (max_coord_y - min_coord_y) as cell_area"
+            )
+        
+        df_polygon_area = df_cell_area\
+                .groupBy(
+                    self.polygon_id
+                ).agg(expr(
+                    "sum(cell_area) as polygon_area"
+                ))
+        
+        df_cells = df_cell_area\
+                .join(
+                    df_polygon_area, self.polygon_id, "left"
+                ).selectExpr(
+                    "*", 
+                    "cell_area/polygon_area as sample_prop"
+                ).drop(
+                    "cell_area", "polygon_area"
+                )
+
 
         df_aceptation_rate = df_cells\
             .join(
@@ -134,6 +160,8 @@ class AceptationRadomPoint(SetRandomPoint):
             path=self._path_aceptation_rate,
             alias="AceptationRate"
         )
+
+        unpersist(df_cells_dr)
 
         self.df_aceptation_rate = as_data_frame(df_aceptation_rate, self._path_aceptation_rate)
 
@@ -162,16 +190,34 @@ class RadomPoint(AceptationRadomPoint):
             polygon_id=self.polygon_id, 
             coords=self.coords,
             path=path, 
-            seed=self.seed
+            seed=self.seed,
+            comp=self._comp
         ).withColumnRenamed(
             "cell_id", "cell2_id"
+        ).withColumnRenamed(
+            "cell_type", "cell2_type"
         )
 
-        df_sample = self.get_container_polygon(
-            df_point=df_sample_pre, 
-            point_id=["cell2_id", "_index_"],
-            path=path,
-            partition=partition
+        df_sample_in = df_sample_pre\
+            .filter("cell2_type = 'inside'")
+
+        df_sample_un = self.get_container_polygon(
+            df_point=df_sample_pre.filter("cell2_type = 'undecided'"), 
+            point_id=["cell2_id", "cell2_type", "rand_id"]
         )
+
+        df_sample = df_sample_in\
+            .union(
+                df_sample_un.select(df_sample_in.columns)
+            )
+
+        df_sample = write_persist(
+            df = df_sample,
+            path=path,
+            alias="RandomPoint"
+        )
+
+        unpersist(df_sample_pre)
+        unpersist(df_sample_un)
 
         return df_sample
