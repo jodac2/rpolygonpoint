@@ -8,7 +8,7 @@ from rpolygonpoint.utils.functions import get_container_rectangle
 from rpolygonpoint.utils.functions import get_container_polygon
 
 
-def as_data_frame(df, path):
+def as_data_frame(df, path) -> DataFrame:
     """"
     As spark DataFrame
     ------
@@ -203,15 +203,16 @@ class ContainerPolygon(MeshContainerPolygon):
         
         self.df_polygon = df_polygon
     
-    def get_container_polygon(self, df_point, point_id="point_id", path=None, partition=None):
+    def get_container_polygon(self, df_point, point_id="point_id", add_cols=[], path=None, partition=None) -> DataFrame:
         """
         Polygon container
         """
 
-        _polygon_id = to_list(self.polygon_id)
+        mesh_polygon_id = to_list(self.polygon_id)
         _point_id = to_list(point_id)
-        
-        # Identificar posible poligono al que petencese usando poligono delimitador
+
+        # Identificar posible poligono al que pertencese usando poligono delimitador
+        # Si se encuentran las columnas self.polygon_id se hara se hara el cruce por estas
         df_container_rectangle = get_container_rectangle(
             df_point=df_point, 
             df_delimiter_rectangle=self.df_delimiter_rectangle, 
@@ -222,7 +223,7 @@ class ContainerPolygon(MeshContainerPolygon):
         # Identiicar celda a la que pertence el punto
         df_mesh_delimiter_rectangle = get_delimiter_rectangle(
             df_polygon=self.df_polygon_mesh, 
-            polygon_id=_polygon_id + ["cell_id", "cell_type"], 
+            polygon_id=mesh_polygon_id + ["cell_id", "cell_type"], 
             coords=self.coords
         )
         
@@ -239,7 +240,7 @@ class ContainerPolygon(MeshContainerPolygon):
             .filter(
                 "cell_type = 'undecided'"
             ).select(
-                _polygon_id + _point_id + self.coords
+                mesh_polygon_id + _point_id + self.coords
 
             )
         
@@ -248,21 +249,31 @@ class ContainerPolygon(MeshContainerPolygon):
             df_point=df_cell_undecided, 
             df_polygon_side=self.df_polygon_side, 
             polygon_id=self.polygon_id,
-            point_id=point_id, 
+            point_id=_point_id, 
             coords=self.coords
         )
-
+        
         # Container Polygon
         df_cp1 = df_container_rectangle\
-            .select(_point_id + _polygon_id)
+            .filter(
+                "cell_type = 'inside'"
+            ).select(
+                _point_id + mesh_polygon_id
+            )
 
         df_cp2 = df_container_polygon\
-            .select(_point_id + _polygon_id)
+            .select(
+                _point_id + mesh_polygon_id
+            )
+        
+        _add_cols = [ci for ci in add_cols if ci not in self.coords]
 
         df_container_polygon = df_cp1.union(df_cp2)\
             .join(
-                df_point, point_id, "inner"
-            )
+                df_point.select(_point_id + self.coords + _add_cols), 
+                _point_id, 
+                "inner"
+            ).distinct()
 
         df_container_polygon = write_persist(
             df=df_container_polygon, 

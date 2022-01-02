@@ -1,4 +1,7 @@
-from rpolygonpoint.utils.utils import logging
+from rpolygonpoint.utils.utils import logging, to_list
+from rpolygonpoint.utils.spark import write_persist, unpersist
+from rpolygonpoint.utils.functions import get_delimiter_rectangle
+from pyspark.sql.functions import expr
 
 
 def spark_seed(seed):
@@ -76,3 +79,108 @@ def rescale(df, name, scale=[0., 1.], digit=None):
     
     return df.selectExpr("*", expr_str)
 
+
+def expr_rand_u2(coord_x, coord_y, prefix="rand", seed=None):
+    """
+    Expresions to get random u2
+    """
+
+    expr_rand = "{0} + ({1} - {0}) * rand({3}) as {2}"
+    
+    rand_x = expr_rand.format(*coord_x, prefix + "_x", spark_seed(seed))
+    
+    seed_y = seed if seed is None else seed + 1
+    
+    rand_y = expr_rand.format(*coord_y, prefix + "_y", spark_seed(seed_y))
+    
+    return rand_x, rand_y
+
+
+def get_rand_u2(df_cells, size="size", polygon_id="polygon_id", coords=["coord_x", "coord_y"], prefix="coord", path=None, seed=None):
+    """
+    Random number in mesh cell
+    """
+    
+    _polygon_id = to_list(polygon_id)
+
+    df_cells2 = get_delimiter_rectangle(
+        df_polygon=df_cells, 
+        polygon_id=_polygon_id + ["cell_id", size],
+        coords=coords
+    )
+    
+    rand_u2 = expr_rand_u2(
+        coord_x=["min_" + coords[0], "max_" + coords[0]], 
+        coord_y=["min_" + coords[1], "max_" + coords[1]], 
+        prefix=prefix, 
+        seed=seed
+    )
+    
+    df_rand_u2 = df_cells2\
+        .selectExpr(
+            "*","explode(sequence(1, %s)) as _index_" % size
+        ).selectExpr(
+            *_polygon_id, 
+            "cell_id", 
+            "_index_",
+            *rand_u2
+        )
+    
+    df_rand_u2 = write_persist(
+        df=df_rand_u2,
+        alias="Cell-RandomPoint",
+        path=path
+    )
+    
+    unpersist(df_cells)
+    
+    return df_rand_u2
+
+
+def get_rand2_u2(df_aceptation_rate, size, polygon_id="polygon_id", coords=["coord_x", "coord_y"], prefix="coord", path=None, seed=None):
+    """
+    Random number in mesh cell
+    """
+    
+    _polygon_id = to_list(polygon_id)
+
+    df_cell_size = df_aceptation_rate\
+        .groupBy(
+            polygon_id
+        ).agg(
+            expr("mean(aceptation_rate) as rate"),
+            expr("count(1) as cell_number")
+        ).selectExpr(
+            "*", 
+            "{0} / rate as rsize".format(size)
+        ).selectExpr(
+            *_polygon_id,
+            "ceil(rsize/cell_number + log(10, rsize/cell_number + 1)) as cell_size"
+        )
+    
+    rand_u2 = expr_rand_u2(
+        coord_x=["min_" + coords[0], "max_" + coords[0]], 
+        coord_y=["min_" + coords[1], "max_" + coords[1]], 
+        prefix=prefix, 
+        seed=seed
+    )
+    
+    df_rand_u2 = df_aceptation_rate\
+        .join(
+            df_cell_size, polygon_id, "left"
+        ).selectExpr(
+            "*","explode(sequence(1, cell_size)) as _index_"
+        ).selectExpr(
+            *_polygon_id, 
+            "cell_id", 
+            "_index_",
+            *rand_u2
+        )
+    
+    df_rand_u2 = write_persist(
+        df=df_rand_u2,
+        alias="Cell-RandomPoint",
+        path=path
+    )
+    
+    return df_rand_u2
