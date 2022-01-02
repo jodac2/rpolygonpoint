@@ -71,7 +71,7 @@ Debido a que la ejecución del algoritmo ocurre en distribuido, es necesario con
 
 Además de las probabilides de aceptación, se obtiene la proporción de los puntos propuesta, $c_i$, que deben ser generado por cada celda de la malla. Este tamaño corresponde a la proporción del área de la celda, $a_i$, del total del area de las celdas, $A$; es decir, $c_i = a_i/A$ y como consecuencia $n_i = c_i N$. El resultado de este paso tambien agregado al pre-proceso.
 
-### Paso 2: Simulación de puntos propuesta
+### Paso 3: Simulación de puntos propuesta
 
 Sea $C$ el número de componentes tipo inside y undecided; $[x_{0i}, x_{1i}]$ y $[y_{0i}, y_{1i}]$ lo límites inferior y superior en los ejes $x$, $y$ del i-ésimo componetes de la malla. El algoritmo para generar un punto propuesta consiste en los siguientes pasos:
 
